@@ -1,0 +1,19 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% block header %}
+        <meta charset="UTF-8">
+        <title>Book a moving company</title>
+    {% endblock %}
+    {% block css %}{% endblock %}
+</head>
+<body>
+{% block content %}
+{% endblock %}
+{% block js %}
+    <script src="{% static "admin/js/vendor/jquery/jquery.js" %}"></script>
+{% endblock %}
+</body>
+</html>

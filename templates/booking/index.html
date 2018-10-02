@@ -1,0 +1,141 @@
+{% extends 'booking/base.html' %}
+{% load static %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'common/css/jquery-ui.css' %}">
+    <style>
+        input[type='text'] {
+            height: 20px;
+            font-size: 12px;
+        }
+        .address_block {
+            width: 27%;
+            float: left;
+            margin-right: 20px;
+            font-size: 20px;
+        }
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        td, th {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #dddddd;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="address_block">
+        <b>I am booking from</b><br/><br/>
+        <input id="source_address" type="text" size="50" placeholder="Enter a location" autocomplete="on"
+               runat="server"/>
+    </div>
+    <div class="address_block">
+        <b>To</b><br/><br/>
+        <input id="destination_address" type="text" size="50" placeholder="Enter a location" autocomplete="on"
+               runat="server"/>
+        <input type="hidden" id="city2" name="city2"/>
+        <input type="hidden" id="cityLat" name="cityLat"/>
+        <input type="hidden" id="cityLng" name="cityLng"/>
+    </div>
+    <div class="address_block">
+        <b>Date</b><br/><br/>
+        <input type="text" placeholder="YYYY-MM-DD" id="datepicker">
+    </div>
+    <div style="clear: both;"></div>
+    <br/>
+    <div id="error_msg" style="color: red;"></div>
+    <input type="button" value="Submit" onclick="submit_form();"><br/>
+    <hr><br/>
+    <div id="company_data">
+        <table>
+            <tr>
+                <th>Name</th>
+                <th>Contact no.</th>
+                <th>License no.</th>
+                <th>Rating</th>
+                <th></th>
+            </tr>
+        </table>
+    </div>
+{% endblock %}
+{% block js %}
+    {{ block.super }}
+    <script type="text/javascript"
+            src="https://maps.googleapis.com/maps/api/js?key={{ GOOGLE_MAP_API_KEY }}&libraries=places"></script>
+    <script src="{% static 'common/js/jquery-ui.js' %}"></script>
+    <script>
+        function initialize() {
+            var source_input = document.getElementById('source_address');
+            var autocomplete_source = new google.maps.places.Autocomplete(source_input);
+            var destination_input = document.getElementById('destination_address');
+            var destination_autocomplete = new google.maps.places.Autocomplete(destination_input);
+            google.maps.event.addListener(autocomplete_source, 'place_changed', function () {
+                var place = autocomplete_source.getPlace();
+                console.log(place);
+                document.getElementById('city2').value = place.name;
+                document.getElementById('cityLat').value = place.geometry.location.lat();
+                document.getElementById('cityLng').value = place.geometry.location.lng();
+            });
+
+        }
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+        function get_lat_lng() {
+            alert(document.getElementById('cityLat').value + ', ' + document.getElementById('cityLng').value);
+        }
+
+        function submit_form(){
+            if (!$('#source_address').val() || !$('#destination_address').val()) {
+                $('#error_msg').html('Source and Destination addresses are mandatory');
+                return false;
+            }
+            if (!$('#datepicker').val()) {
+                $('#error_msg').html('Please select the moving date');
+                return false;
+            }
+            $.ajax({
+                url: "{% url 'submit-query' %}",
+                type: 'POST',
+                async: false,
+                data: {
+                    lng: $('#cityLng').val(),
+                    lat: $('#cityLat').val(),
+                    query_date: $('#datepicker').val(),
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function (result) {
+                    if (result.status == 'success') {
+                        $('#company_data table').html('');
+                        var data = result.company_data;
+                        for (i=0; i<data.length; i++) {
+                            $('#company_data table').append('<tr><td>' +  data[i].name + '</td><td>' + data[i].contact_no +
+                                    '</td><td>' + data[i].license_no + '</td><td>' + data[i].rating +
+                                    '</td><td>' + data[i].schedule_link + '</td></tr>');
+                        }
+                    }
+                    else {
+                        $('#error_msg').html(result.msg);
+                        $('#error_msg').show();
+                        $('#company_data ul').html('');
+                    }
+                }
+            });
+        }
+    </script>
+    <script>
+        $(function () {
+            $("#datepicker").datepicker({ dateFormat: 'yy-mm-dd' });
+            $("input[type=button]").button();
+        });
+    </script>
+
+{% endblock %}

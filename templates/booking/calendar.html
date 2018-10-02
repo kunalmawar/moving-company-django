@@ -1,0 +1,124 @@
+{% extends 'booking/base.html' %}
+{% load static %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'common/css/jquery-ui.css' %}">
+    <link rel="stylesheet" href="{% static 'common/css/fullcalendar.css' %}">
+    <style>
+        #email_popup {
+            height: 115px;
+            width: 250px;
+            z-index: 99;
+            position: relative;
+            bottom: 350px; border: 1px solid;
+            padding-top: 5px;
+            background-color: #6a94ce;
+            display: none;
+        }
+        #close_btn {
+            float:right;
+            margin-right: 10px;
+            padding-left: 10px;
+            color: black;
+        }
+        td.fc-day.fc-past {
+            background-color: #EEEEEE;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <center>
+        <div id='calendar' style="height: 600px; width: 800px;"></div>
+        <div id="email_popup">
+            <div id="set_time" style="float: left; margin-left: 40px;"></div><a href="javascript:void(0);">
+            <div id="close_btn" onclick="close_email();">X</div></a>
+            <div style="clear: both;"></div><br/>
+            <input type="text" id="email" style="width: 200px; height: 16px;" placeholder="Enter your email"><br/>
+            <input id="selected_datetime" type="hidden">
+            <div id="error_msg" style="color: rgb(186, 24, 20); height: 10px; padding: 5px 0;"></div>
+            <button onclick="confirm_booking();">Book</button>
+        </div>
+    </center>
+{% endblock %}
+{% block js %}
+    {{ block.super }}
+    <script src="{% static 'common/js/jquery-ui.js' %}"></script>
+    <script src="{% static 'common/js/moment.min.js' %}"></script>
+    <script src="{% static 'common/js/fullcalendar.js' %}"></script>
+    <script>
+        function close_email(){
+            $('#email_popup').hide();
+            $('#error_msg').html('');
+        }
+
+        function confirm_booking(){
+            if ($('#email').val() == '') {
+                $('#error_msg').html('Email is mandatory');
+                return false;
+            }
+            $.ajax({
+                url: "{% url 'confirm-booking' %}",
+                type: 'POST',
+                async: false,
+                data: {
+                    email: $('#email').val(),
+                    booking_datetime: $('#selected_datetime').val(),
+                    company_id: '{{ company_id }}',
+                    csrfmiddlewaretoken: '{{ csrf_token }}'
+                },
+                success: function (result) {
+                    if (result.status == 'success') {
+                        $('#email_popup').hide();
+                        alert('Booking done');
+                    }
+                    else {
+                        $('#error_msg').html(result.msg);
+                        $('#error_msg').show();
+                    }
+                }
+            });
+        }
+    </script>
+    <script>
+        $(function () {
+            $('#calendar').fullCalendar({
+                selectable: true,
+                header: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'agendaWeek'
+                },
+                defaultView: 'agendaWeek',
+                defaultDate: moment('{{ query_date }}'),
+                businessHours: {{ business_hours|safe }},
+                firstDay: 1,
+                themeSystem: 'jquery-ui',
+                select: function(startDate, endDate, jsEvent, view, resource) {
+                    // Disable past dates
+                    if (startDate.isBefore(moment())) {
+                        $('#calendar').fullCalendar('unselect');
+                        return false;
+                    }
+                    var start_moment = moment(startDate);
+                    var date = start_moment.clone();
+                    var helper_data = {{ business_hours_helper|safe }};
+                    if (date.isoWeekday() in helper_data){
+                        var time_range = helper_data[date.isoWeekday()];
+                        var selected_time = startDate.format('HH:mm');
+                        if (selected_time > time_range[0] && selected_time < time_range[1]) {
+                            $('#error_msg').html('');
+                            $('#set_time').html('You have selected ' + selected_time);
+                            $('#selected_datetime').val(startDate.format('YYYY-MM-DD HH:mm'));
+                            $('#email_popup input[type=text]').val('');
+                            $('#email_popup').show();
+                        }
+                    }
+{#                    alert('Selected ' + startDate.format('HH:mm') + ' to ' + endDate.format('HH:mm'));#}
+
+                }
+            })
+        });
+    </script>
+
+{% endblock %}
